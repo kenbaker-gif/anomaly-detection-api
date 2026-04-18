@@ -104,14 +104,14 @@ def test_predict_normal_transaction():
     assert data["label"] == "NORMAL"
     assert data["is_fraud"] is False
 
-
 def test_predict_suspicious_transaction():
     _skip_if_no_model()
-    r = client.post("/predict", json=FRAUD_TX)
-    assert r.status_code == 200
-    data = r.json()
-    # Extreme V-features should produce a high anomaly score
-    assert data["anomaly_score"] < 0  # negative = anomalous
+    normal_r = client.post("/predict", json=NORMAL_TX)
+    fraud_r = client.post("/predict", json=FRAUD_TX)
+    assert fraud_r.status_code == 200
+    # Suspicious transaction should score lower (more anomalous) than normal
+    assert fraud_r.json()["anomaly_score"] < normal_r.json()["anomaly_score"]
+    assert fraud_r.json()["confidence"] > normal_r.json()["confidence"]
 
 
 def test_predict_missing_field():

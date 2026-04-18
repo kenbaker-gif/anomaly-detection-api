@@ -19,7 +19,7 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
-MODELS_DIR = Path("models")
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 FEATURE_COLS = [
     "Time", "V1", "V2", "V3", "V4", "V5", "V6", "V7",
     "V8", "V9", "V10", "V11", "V12", "V13", "V14", "V15",

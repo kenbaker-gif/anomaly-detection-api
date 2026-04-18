@@ -10,7 +10,7 @@ from typing import Optional
 
 import numpy as np
 
-MODELS_DIR = Path("models")
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 
 
 class AnomalyDetector:
@@ -108,6 +108,8 @@ class AnomalyDetector:
     def predict_batch(self, transactions: list[dict]) -> list[dict]:
         if not self._loaded:
             raise RuntimeError("Model not loaded.")
+        if not transactions:
+            return []
 
         raw = np.array([[t[col] for col in self.feature_cols] for t in transactions])
         scaled = self.scaler.transform(raw)

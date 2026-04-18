@@ -18,17 +18,14 @@ from app.schemas import (
     TransactionInput,
 )
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load model on startup."""
     try:
         detector.load()
-    except FileNotFoundError as e:
+    except Exception as e:
         print(f"[startup] WARNING: {e}")
         print("[startup] API will start but /predict endpoints will return 503 until model is trained.")
     yield
-    # shutdown: nothing to clean up
 
 
 app = FastAPI(

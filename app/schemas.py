@@ -18,8 +18,7 @@ class TransactionInput(BaseModel):
     V26: float; V27: float; V28: float
     Amount: float = Field(..., description="Transaction amount in USD")
 
-    class Config:
-        json_schema_extra = {
+    model_config = {"json_schema_extra": {
             "example": {
                 "Time": 406.0,
                 "V1": -2.312, "V2": 1.952, "V3": -1.610, "V4": 3.997,
@@ -31,7 +30,7 @@ class TransactionInput(BaseModel):
                 "V25": 0.044, "V26": -0.202, "V27": 0.472, "V28": 0.529,
                 "Amount": 149.62
             }
-        }
+        }}
 
 
 class AnomalyExplanation(BaseModel):

@@ -3,12 +3,10 @@ main.py — FastAPI application for credit card fraud anomaly detection.
 """
 
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
 from app.model import detector
 from app.schemas import (
@@ -20,10 +18,11 @@ from app.schemas import (
     TransactionInput,
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# ─── Lifespan Configuration ───────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Handles startup and shutdown events."""
     try:
         detector.load()
     except Exception as e:
@@ -31,6 +30,7 @@ async def lifespan(app: FastAPI):
         print("[startup] API will start but /predict endpoints will return 503 until model is trained.")
     yield
 
+# ─── App Initialization ───────────────────────────────────────────────────────
 
 app = FastAPI(
     title="FraudGuard — Credit Card Anomaly Detection API",
@@ -45,6 +45,8 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# ─── Middleware & Static Files ────────────────────────────────────────────────
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -52,6 +54,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# This must come AFTER 'app' is defined
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ─── Exception handlers ────────────────────────────────────────────────────────
 
@@ -59,15 +63,11 @@ app.add_middleware(
 async def runtime_error_handler(request: Request, exc: RuntimeError):
     return JSONResponse(status_code=503, content={"detail": str(exc)})
 
-
 # ─── Health & info ─────────────────────────────────────────────────────────────
-
-@app.get("/", tags=["Health"])
-def root():
-    return {"message": "FraudGuard API is running. Visit /docs for the full API reference."}
 
 @app.get("/", include_in_schema=False)
 def root():
+    """Serves the frontend index page."""
     return FileResponse("static/index.html")
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
@@ -78,7 +78,6 @@ def health():
         model_version=detector.version,
         training_samples=detector.meta.get("training_samples"),
     )
-
 
 @app.get("/model/info", response_model=ModelInfoResponse, tags=["Model"])
 def model_info():
@@ -103,7 +102,7 @@ def predict(transaction: TransactionInput):
     Analyse a single transaction and return:
     - **is_fraud**: boolean
     - **label**: FRAUD or NORMAL
-    - **anomaly_score**: raw Isolation Forest score (more negative = more anomalous)
+    - **anomaly_score**: raw Isolation Forest score
     - **confidence**: 0–1 normalised fraud likelihood
     - **explanation**: top features driving the decision
     """
@@ -112,7 +111,6 @@ def predict(transaction: TransactionInput):
 
     result = detector.predict(transaction.model_dump())
     return PredictionResponse(**result)
-
 
 @app.post("/predict/batch", response_model=BatchPredictionResponse, tags=["Prediction"])
 def predict_batch(payload: BatchTransactionInput):

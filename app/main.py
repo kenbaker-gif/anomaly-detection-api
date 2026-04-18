@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.model import detector
 from app.schemas import (
@@ -17,6 +19,8 @@ from app.schemas import (
     PredictionResponse,
     TransactionInput,
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,6 +66,9 @@ async def runtime_error_handler(request: Request, exc: RuntimeError):
 def root():
     return {"message": "FraudGuard API is running. Visit /docs for the full API reference."}
 
+@app.get("/", include_in_schema=False)
+def root():
+    return FileResponse("static/index.html")
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 def health():
@@ -87,7 +94,6 @@ def model_info():
         training_samples=m["training_samples"],
         threshold=m["threshold"],
     )
-
 
 # ─── Prediction endpoints ──────────────────────────────────────────────────────
 

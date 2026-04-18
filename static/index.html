@@ -750,12 +750,13 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>ANALYZING...';
 
+    // ✅ Corrected Capitalization
     const payload = {
-      time: parseFloat(document.getElementById('f-time').value) || 0,
-      amount: parseFloat(document.getElementById('f-amount').value) || 0,
+      Time: parseFloat(document.getElementById('f-time').value) || 0,
+      Amount: parseFloat(document.getElementById('f-amount').value) || 0,
     };
     for (let i = 1; i <= 28; i++) {
-      payload[`v${i}`] = parseFloat(document.getElementById(`v${i}`).value) || 0;
+      payload[`V${i}`] = parseFloat(document.getElementById(`v${i}`).value) || 0;
     }
 
     try {
@@ -767,7 +768,7 @@
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        throw new Error(err.detail?.[0]?.msg || err.detail || `HTTP ${res.status}`);
       }
 
       const data = await res.json();
@@ -804,44 +805,51 @@
     bar.className = `conf-bar-fill ${cls}`;
     bar.style.width = (data.confidence * 100).toFixed(1) + '%';
 
-    // Explanation features
+    // ✅ Corrected Explanation Logic for Dictionary format
     const expContainer = document.getElementById('exp-features');
-    if (data.explanation && data.explanation.length) {
-      const maxVal = Math.max(...data.explanation.map(f => Math.abs(f.value)));
-      expContainer.innerHTML = data.explanation.map(f => {
-        const pct = maxVal > 0 ? (Math.abs(f.value) / maxVal * 100).toFixed(0) : 0;
+    if (data.explanation && data.explanation.top_features) {
+      const topKeys = data.explanation.top_features;
+      const contributions = data.explanation.feature_contributions;
+
+      expContainer.innerHTML = topKeys.map(key => {
+        const val = contributions[key] || 0;
+        const pct = Math.min(Math.abs(val) * 20, 100); 
         return `
           <div class="exp-feature">
-            <span class="exp-feature-name">${f.feature}</span>
+            <span class="exp-feature-name">${key}</span>
             <div class="exp-bar-bg"><div class="exp-bar-fill" style="width:${pct}%"></div></div>
-            <span class="exp-val">${f.value?.toFixed(4)}</span>
+            <span class="exp-val">${val.toFixed(4)}</span>
           </div>`;
       }).join('');
     } else {
-      expContainer.innerHTML = '<span style="color:var(--muted);font-size:0.7rem;font-family:var(--mono)">no explanation data</span>';
+      expContainer.innerHTML = '<span style="color:var(--muted);font-size:0.7rem;">no explanation data</span>';
     }
   }
 
-  // ─── CSV ───
+  // ─── CSV Logic ───
   const dropZone = document.getElementById('drop-zone');
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag');
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
-  });
+  if(dropZone) {
+      dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('drag');
+        const file = e.dataTransfer.files[0];
+        if (file) processFile(file);
+      });
+  }
 
   function handleFile(e) { processFile(e.target.files[0]); }
 
   function processFile(file) {
-    document.getElementById('file-name').textContent = file.name;
+    const nameEl = document.getElementById('file-name');
+    nameEl.textContent = file.name;
     const reader = new FileReader();
     reader.onload = e => {
       parsedCSV = parseCSV(e.target.result);
-      document.getElementById('batch-btn').disabled = parsedCSV.length === 0;
-      document.getElementById('file-name').textContent = `${file.name} — ${parsedCSV.length} rows`;
+      const batchBtn = document.getElementById('batch-btn');
+      if(batchBtn) batchBtn.disabled = parsedCSV.length === 0;
+      nameEl.textContent = `${file.name} — ${parsedCSV.length} rows`;
     };
     reader.readAsText(file);
   }
@@ -849,21 +857,29 @@
   function parseCSV(text) {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    
+    // ✅ Fix: Map CSV headers to match Capitalized Schema
+    const headers = lines[0].split(',').map(h => {
+        let clean = h.trim().toLowerCase();
+        if (clean === 'time') return 'Time';
+        if (clean === 'amount') return 'Amount';
+        if (clean.startsWith('v')) return clean.toUpperCase();
+        return h.trim();
+    });
+
     return lines.slice(1).map(line => {
       const vals = line.split(',');
       const obj = {};
       headers.forEach((h, i) => { obj[h] = parseFloat(vals[i]) || 0; });
       return obj;
-    }).filter(r => r.amount !== undefined || r.time !== undefined);
+    }).filter(r => r.Amount !== undefined || r.Time !== undefined);
   }
 
   function loadSampleCSV() {
-    // Generate 20 sample transactions (mix of normal + a few anomalous)
-    const rows = [['time','amount','v1','v2','v3','v4','v5','v6','v7','v8','v9','v10',
-                    'v11','v12','v13','v14','v15','v16','v17','v18','v19','v20','v21','v22','v23','v24','v25','v26','v27','v28']];
+    const rows = [['Time','Amount','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10',
+                    'V11','V12','V13','V14','V15','V16','V17','V18','V19','V20','V21','V22','V23','V24','V25','V26','V27','V28']];
     for (let i = 0; i < 20; i++) {
-      const isFraud = i < 3; // first 3 are anomalous with extreme V values
+      const isFraud = i < 3;
       const row = [
         Math.floor(Math.random() * 172800),
         isFraud ? (Math.random() * 2000 + 500).toFixed(2) : (Math.random() * 200 + 1).toFixed(2)
@@ -874,116 +890,12 @@
       rows.push(row);
     }
     const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const file = new File([blob], 'sample_transactions.csv');
     parsedCSV = parseCSV(csv);
     document.getElementById('file-name').textContent = `sample_transactions.csv — ${parsedCSV.length} rows`;
-    document.getElementById('batch-btn').disabled = false;
+    const batchBtn = document.getElementById('batch-btn');
+    if(batchBtn) batchBtn.disabled = false;
   }
 
-  async function runBatch() {
-    if (!parsedCSV || parsedCSV.length === 0) return;
-
-    const btn = document.getElementById('batch-btn');
-    const errEl = document.getElementById('batch-error');
-    errEl.style.display = 'none';
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>PROCESSING...';
-
-    // Build transactions — normalize keys
-    const transactions = parsedCSV.slice(0, 500).map(row => {
-      const t = {
-        time: row.time ?? 0,
-        amount: row.amount ?? 0,
-      };
-      for (let i = 1; i <= 28; i++) {
-        t[`v${i}`] = row[`v${i}`] ?? 0;
-      }
-      return t;
-    });
-
-    try {
-      const res = await fetch(`${API}/predict/batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions })
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      renderBatch(data, transactions);
-      sessionPredictions += data.total;
-      document.getElementById('stat-predictions').textContent = sessionPredictions;
-
-    } catch (e) {
-      errEl.textContent = '⚠ ' + e.message;
-      errEl.style.display = 'block';
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'RUN BATCH';
-    }
-  }
-
-  function renderBatch(data, transactions) {
-    document.getElementById('bs-total').textContent = data.total;
-    document.getElementById('bs-fraud').textContent = data.fraud_count;
-    document.getElementById('bs-normal').textContent = data.normal_count;
-
-    // Table
-    const tbody = document.getElementById('batch-table-body');
-    tbody.innerHTML = data.results.map((r, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>$${transactions[i]?.amount?.toFixed(2) ?? '—'}</td>
-        <td><span class="badge ${r.is_fraud ? 'fraud' : 'normal'}">${r.label}</span></td>
-        <td>${r.anomaly_score?.toFixed(4) ?? '—'}</td>
-        <td>${r.confidence != null ? (r.confidence * 100).toFixed(1) + '%' : '—'}</td>
-      </tr>
-    `).join('');
-
-    // Histogram
-    renderHistogram(data.results);
-
-    document.getElementById('batch-results').style.display = 'block';
-  }
-
-  function renderHistogram(results) {
-    const scores = results.map(r => r.anomaly_score).filter(s => s != null);
-    if (scores.length === 0) return;
-
-    const min = Math.min(...scores);
-    const max = Math.max(...scores);
-    const bins = 12;
-    const binSize = (max - min) / bins || 0.01;
-    const counts = new Array(bins).fill(0);
-    scores.forEach(s => {
-      const idx = Math.min(Math.floor((s - min) / binSize), bins - 1);
-      counts[idx]++;
-    });
-
-    const maxCount = Math.max(...counts);
-    const hist = document.getElementById('histogram');
-    hist.innerHTML = counts.map((c, i) => {
-      const pct = maxCount > 0 ? (c / maxCount * 100).toFixed(0) : 0;
-      const binMid = (min + binSize * (i + 0.5)).toFixed(2);
-      // color: negative scores = more anomalous = red-ish
-      const isAnomalous = (min + binSize * (i + 0.5)) < 0;
-      const barColor = isAnomalous ? 'var(--red)' : 'var(--cyan)';
-      return `
-        <div class="hist-bar-wrap">
-          <div class="hist-bar" style="height:${pct}%;background:${barColor};opacity:0.7"></div>
-          <div class="hist-label">${binMid}</div>
-        </div>`;
-    }).join('');
-
-    document.getElementById('chart-wrap').style.display = 'block';
-  }
-
-  init();
+  // Call init on load
+  window.onload = init;
 </script>
-</body>
-</html>

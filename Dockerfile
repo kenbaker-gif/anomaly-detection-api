@@ -6,9 +6,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
+# Copy source code and required directories
 COPY app/ ./app/
 COPY models/ ./models/
+# --- ADD THIS LINE ---
+COPY static/ ./static/ 
+# ---------------------
 
 EXPOSE 8000
 
